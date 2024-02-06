@@ -238,6 +238,7 @@ static Monitor *wintomon(Window w);
 static int xerror(Display *dpy, XErrorEvent *ee);
 static int xerrordummy(Display *dpy, XErrorEvent *ee);
 static int xerrorstart(Display *dpy, XErrorEvent *ee);
+static void xkbstatenotify(XkbEvent *);
 static void zoom(const Arg *arg);
 
 /* variables */
@@ -265,7 +266,9 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 	[PropertyNotify] = propertynotify,
 	[UnmapNotify] = unmapnotify
 };
-static void (*xkbhandler[12]) (XkbEvent *) = {0};
+static void (*xkbhandler[12]) (XkbEvent *) = {
+	[XkbStateNotify] = xkbstatenotify,
+};
 static Atom wmatom[WMLast], netatom[NetLast];
 static int running = 1;
 static Cur *cursor[CurLast];
@@ -2211,6 +2214,27 @@ xerrorstart(Display *dpy, XErrorEvent *ee)
 {
 	die("dwm: another window manager is already running");
 	return -1;
+}
+
+void
+xkbstatenotify(XkbEvent *ev) {
+	XkbDescRec         *desc;
+	char               *layout;
+	NotifyNotification *notification;
+	GVariant           *tag;
+
+	desc   = XkbGetKeyboard(dpy, XkbAllComponentsMask, XkbUseCoreKbd);
+	layout = XGetAtomName(dpy, desc->names->groups[ev->state.group]);
+
+	tag          = g_variant_new_string("DWM_XkbStateNotify");
+	notification = notify_notification_new("Keyboard Layout", layout, NULL);
+	notify_notification_set_hint(notification, "x-dunst-stack-tag", tag);
+	notify_notification_show(notification, NULL);
+
+	g_variant_unref(tag);
+	g_object_unref(G_OBJECT(notification));
+	XkbFreeKeyboard(desc, XkbAllComponentsMask, True);
+	XFree(layout);
 }
 
 void
