@@ -44,6 +44,8 @@
 #include "drw.h"
 #include "util.h"
 
+#include <libnotify/notify.h>
+
 /* macros */
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
 #define CLEANMASK(mask)         (mask & ~(numlockmask|LockMask) & (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
@@ -505,6 +507,7 @@ cleanup(void)
 	XSync(dpy, False);
 	XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
 	XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
+	notify_uninit();
 }
 
 void
@@ -1561,6 +1564,9 @@ setup(void)
 	XSetWindowAttributes wa;
 	Atom utf8string;
 	struct sigaction sa;
+
+	/* init libnotify */
+	notify_init("dwm-"VERSION);
 
 	/* do not transform children into zombies when they terminate */
 	sigemptyset(&sa.sa_mask);
