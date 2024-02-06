@@ -41,6 +41,8 @@
 #endif /* XINERAMA */
 #include <X11/Xft/Xft.h>
 
+#include <X11/XKBlib.h>
+
 #include "drw.h"
 #include "util.h"
 
@@ -263,6 +265,7 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 	[PropertyNotify] = propertynotify,
 	[UnmapNotify] = unmapnotify
 };
+static void (*xkbhandler[12]) (XkbEvent *) = {0};
 static Atom wmatom[WMLast], netatom[NetLast];
 static int running = 1;
 static Cur *cursor[CurLast];
@@ -271,6 +274,7 @@ static Display *dpy;
 static Drw *drw;
 static Monitor *mons, *selmon;
 static Window root, wmcheckwin;
+static int xkbEventType;
 
 /* configuration, allows nested code to access above variables */
 #include "config.h"
@@ -1406,9 +1410,12 @@ run(void)
 	XEvent ev;
 	/* main event loop */
 	XSync(dpy, False);
-	while (running && !XNextEvent(dpy, &ev))
-		if (handler[ev.type])
-			handler[ev.type](&ev); /* call handler */
+	while (running && !XNextEvent(dpy, &ev)) {
+		if (ev.type == xkbEventType && xkbhandler[((XkbEvent *)&ev)->any.xkb_type])
+			xkbhandler[((XkbEvent *)&ev)->any.xkb_type]((XkbEvent *)&ev);
+		else if (handler[ev.type])
+			handler[ev.type](&ev);
+	}
 }
 
 void
@@ -1634,6 +1641,10 @@ setup(void)
 	XChangeWindowAttributes(dpy, root, CWEventMask|CWCursor, &wa);
 	XSelectInput(dpy, root, wa.event_mask);
 	grabkeys();
+	/* X keyboard extension */
+	XkbQueryExtension(dpy, 0, &xkbEventType, 0, 0, 0);
+	XkbSelectEventDetails(dpy, XkbUseCoreKbd, XkbStateNotify, XkbAllStateComponentsMask, XkbGroupStateMask);
+
 	focus(NULL);
 }
 
